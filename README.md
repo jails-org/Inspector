@@ -1,4 +1,4 @@
-# 🏝 Jails Component Inspector
+# 🔍 Jails Component Inspector
 
 A browser extension dev tool for inspecting and visualizing Jails components in your web applications.
 
@@ -100,17 +100,6 @@ dev-tools/
 - **Canvas API** - Used for rendering the interactive graph
 - **Chrome Extension API** - For browser integration
 - **Service Workers** - For background processing
-
-## Future Enhancements
-
-- [ ] Component hierarchy tree view
-- [ ] Real-time component state inspection
-- [ ] Component performance metrics
-- [ ] Breakpoint/debug integration
-- [ ] Export component tree as JSON
-- [ ] Search/filter components
-- [ ] Component event tracking
-- [ ] Integration with Jails devtools API
 
 ## License
 
