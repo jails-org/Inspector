@@ -101,17 +101,6 @@ dev-tools/
 - **Chrome Extension API** - For browser integration
 - **Service Workers** - For background processing
 
-## Future Enhancements
-
-- [ ] Component hierarchy tree view
-- [ ] Real-time component state inspection
-- [ ] Component performance metrics
-- [ ] Breakpoint/debug integration
-- [ ] Export component tree as JSON
-- [ ] Search/filter components
-- [ ] Component event tracking
-- [ ] Integration with Jails devtools API
-
 ## License
 
 MIT
