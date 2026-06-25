@@ -19,6 +19,14 @@ body {
     height: 100%;
 }
 
+#radar {
+    position:fixed;
+    right: 0;
+    top: 70px;
+    z-index: 9;
+    border: 1px solid #334155;
+}
+
 .header {
     padding: 8px 16px;
     background: #0e2032;
@@ -46,7 +54,7 @@ body {
 }
 
 .btn-primary {
-    background: #3b82f6;
+    background: #31425f;
     color: white;
 }
 
@@ -77,6 +85,12 @@ body {
 	font-size: 30px;
 	font-weight: 100;
 	padding: 0 10px 5px;
+    color: #fff;
+    margin: 0 10px;
+}
+
+#radar-btn {
+    
 }
 
 .main-layout {

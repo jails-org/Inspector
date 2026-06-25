@@ -17,9 +17,15 @@
 </head>
 <body>
     <div id="app">
+
+        <div id="radar"></div>
+
         <div class="header">
             <h1 class="title"><img src="./logo.png" width="100" /> Jails Inspector</h1>
-            <button id="scan-btn" class="btn btn-primary">↻</button>
+            <div>
+                <button id="radar-btn" class="btn btn-primary">📡</button>
+                <button id="scan-btn" class="btn btn-primary">↻</button>
+            </div>
         </div>
         
         <div class="main-layout">
@@ -40,5 +46,6 @@
 
     <script src="visualizer.js"></script>
     <script src="devtools-panel.js"></script>
+    <script src="radar.js"></script>
 </body>
 </html>
