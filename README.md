@@ -1,4 +1,4 @@
-# 🏝 Jails Component Inspector
+# 🔍 Jails Component Inspector
 
 A browser extension dev tool for inspecting and visualizing Jails components in your web applications.
 
