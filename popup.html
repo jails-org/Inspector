@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jails Inspector</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <div class="header">
+            <h1>🏝 Jails Inspector</h1>
+            <button id="scan-btn" class="btn btn-primary">Scan Components</button>
+        </div>
+        
+        <div class="main-layout">
+            <div id="info-panel" class="info-panel">
+                <p class="placeholder">Select a component to view details</p>
+            </div>
+            
+            <div id="canvas-container" class="canvas-container">
+                <canvas id="graph-canvas"></canvas>
+                <div class="controls">
+                    <button id="zoom-in" class="btn btn-small" title="Zoom In">+</button>
+                    <button id="zoom-out" class="btn btn-small" title="Zoom Out">−</button>
+                    <button id="reset-view" class="btn btn-small" title="Reset View">⊙</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="visualizer.js"></script>
+    <script src="popup.js"></script>
+</body>
+</html>

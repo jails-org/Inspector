@@ -1,0 +1,18 @@
+{
+  "name": "jails-component-inspector",
+  "version": "0.1.0",
+  "description": "Browser extension for inspecting and visualizing Jails components",
+  "author": "Jails Developer",
+  "license": "MIT",
+  "scripts": {
+    "build": "echo 'No build step required for this extension'",
+    "test": "echo 'Tests coming soon'"
+  },
+  "keywords": [
+    "jails",
+    "components",
+    "devtools",
+    "browser-extension",
+    "visualization"
+  ]
+}
