@@ -1,11 +1,15 @@
 
+
 <p align="center"><img align="center" width="202" height="82" alt="Screenshot 2026-06-25 at 20 56 06" src="https://github.com/user-attachments/assets/34458ea4-5192-494f-8996-682c6354b164" /></p>
 
 <h1 align="center">Inspector</h1>
 
 <p align="center">A browser extension dev tool for inspecting and visualizing Jails components in your web applications.</p>
 
+
 <br />
+
+<p align="center"><img width="640" height="400" alt="screenshot" src="https://github.com/user-attachments/assets/2066085b-0bb4-435f-abd3-2fe52e5f3015" /></p>
 <br />
 <br />
 
