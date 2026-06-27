@@ -37,6 +37,7 @@ class ComponentGraphVisualizer {
     this.signalDuration = 650;
     this.signalCascadeDelay = 180;
     this.pulseDuration = 1200;
+    this.resizeObserver = null;
 
     this.setupCanvasSize();
     this.setupEventListeners();
@@ -44,9 +45,25 @@ class ComponentGraphVisualizer {
 
   setupCanvasSize() {
     const rect = this.canvas.getBoundingClientRect();
-    this.canvas.width = rect.width * window.devicePixelRatio;
-    this.canvas.height = rect.height * window.devicePixelRatio;
-    this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    const pixelRatio = window.devicePixelRatio || 1;
+    const width = Math.max(1, Math.round(rect.width * pixelRatio));
+    const height = Math.max(1, Math.round(rect.height * pixelRatio));
+
+    if (this.canvas.width !== width || this.canvas.height !== height) {
+      this.canvas.width = width;
+      this.canvas.height = height;
+    }
+
+    this.ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    this.render();
+  }
+
+  getViewportSize() {
+    const rect = this.canvas.getBoundingClientRect();
+    return {
+      width: rect.width,
+      height: rect.height,
+    };
   }
 
   setupEventListeners() {
@@ -58,6 +75,11 @@ class ComponentGraphVisualizer {
     this.canvas.addEventListener('click', this.onClick.bind(this));
     
     window.addEventListener('resize', () => this.setupCanvasSize());
+
+    if ('ResizeObserver' in window) {
+      this.resizeObserver = new ResizeObserver(() => this.setupCanvasSize());
+      this.resizeObserver.observe(this.canvas);
+    }
   }
 
   onMouseDown(e) {
@@ -134,8 +156,7 @@ class ComponentGraphVisualizer {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-    const width = rect.width / window.devicePixelRatio;
-    const height = rect.height / window.devicePixelRatio;
+    const { width, height } = this.getViewportSize();
     const worldXBeforeZoom = (x - width / 2) / this.zoom - this.panX;
     const worldYBeforeZoom = (y - height / 2) / this.zoom - this.panY;
 
@@ -152,9 +173,7 @@ class ComponentGraphVisualizer {
   }
 
   getNodeAtPosition(x, y) {
-    const rect = this.canvas.getBoundingClientRect();
-    const width = rect.width / window.devicePixelRatio;
-    const height = rect.height / window.devicePixelRatio;
+    const { width, height } = this.getViewportSize();
 
     for (let node of this.nodes) {
       // Convert world coordinates to screen coordinates
@@ -227,8 +246,7 @@ class ComponentGraphVisualizer {
 
   render() {
     const now = performance.now();
-    const width = this.canvas.width / window.devicePixelRatio;
-    const height = this.canvas.height / window.devicePixelRatio;
+    const { width, height } = this.getViewportSize();
 
     // Clear canvas
     this.ctx.fillStyle = '#0f172a';
