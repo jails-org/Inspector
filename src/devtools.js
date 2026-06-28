@@ -3,7 +3,7 @@
  */
 
 chrome.devtools.panels.create(
-  '🔍 Jails Inspector',
+  'Jails',
   null,
   'devtools-panel.html',
   (panel) => {
