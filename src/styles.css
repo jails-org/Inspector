@@ -81,18 +81,6 @@ body {
     color: #e2e8f0;
 }
 
-#scan-btn {
-	font-size: 30px;
-	font-weight: 100;
-	padding: 0 10px 5px;
-    color: #fff;
-    margin: 0 10px;
-}
-
-#radar-btn {
-    
-}
-
 .main-layout {
     display: flex;
     flex: 1;
