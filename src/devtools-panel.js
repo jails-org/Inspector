@@ -49,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
   chrome.runtime.onMessage.addListener(handleRuntimeMessage);
   window.addEventListener('beforeunload', clearInspectedElementFocus);
 
-  // Auto-scan one second after the inspected page DOM is ready.
+  // Auto-scan after the inspected page DOM is ready.
   scheduleInitialScan();
 });
 
@@ -67,7 +67,7 @@ function scheduleInitialScan() {
         return;
       }
 
-      setTimeout(scanComponents, 1000);
+      scanComponents();
     });
   };
 
