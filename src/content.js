@@ -4,6 +4,16 @@
 
 // Store element references for state retrieval
 window.__jailsInspectorElements = {};
+window.__jailsInspectorElementIds = window.__jailsInspectorElementIds || new WeakMap();
+window.__jailsInspectorNextElementId = window.__jailsInspectorNextElementId || 0;
+
+function getJailsInspectorElementId(el) {
+  if (!window.__jailsInspectorElementIds.has(el)) {
+    window.__jailsInspectorElementIds.set(el, window.__jailsInspectorNextElementId++);
+  }
+
+  return window.__jailsInspectorElementIds.get(el);
+}
 
 window.addEventListener('message', (event) => {
   if (event.source !== window || !event.data || event.data.source !== 'jails-inspector') {
@@ -21,19 +31,21 @@ window.addEventListener('message', (event) => {
 function scanJailsComponents() {
   const components = [];
   const elementMap = new WeakMap();
-  let componentIdCounter = 0;
 
   // Find all custom elements (Jails components typically use kebab-case names)
   const allElements = document.querySelectorAll('*');
+  window.__jailsInspectorElements = {};
   
   allElements.forEach((el) => {
     const tagName = el.tagName.toLowerCase();
     
     // Check if it's a custom element (contains hyphen)
     if (tagName.includes('-')) {
+      const componentId = getJailsInspectorElementId(el);
+
       // Get component info
       const component = {
-        id: componentIdCounter++,
+        id: componentId,
         name: tagName,
         tag: tagName,
         children: [],
@@ -59,7 +71,7 @@ function scanJailsComponents() {
       components.push(component);
       elementMap.set(el, component);
       // Store element reference for later state retrieval
-      window.__jailsInspectorElements[component.id] = el;
+      window.__jailsInspectorElements[componentId] = el;
     }
   });
 

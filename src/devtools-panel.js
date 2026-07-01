@@ -3,6 +3,7 @@
  */
 
 let visualizer;
+let pendingStateScanTimer = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   const canvas = document.getElementById('graph-canvas');
@@ -172,6 +173,7 @@ function handleRuntimeMessage(message) {
 
   const componentId = message.componentId;
   visualizer.notifyComponentUpdated(componentId);
+  scheduleStateDrivenScan(componentId);
 
   if (visualizer.selectedNode && visualizer.selectedNode.component.id === componentId && visualizer.stateRequester) {
     visualizer.showNodeInfo(visualizer.selectedNode);
@@ -183,7 +185,18 @@ function handleRuntimeMessage(message) {
   }
 }
 
-function scanComponents() {
+function scheduleStateDrivenScan(componentId) {
+  if (pendingStateScanTimer) {
+    clearTimeout(pendingStateScanTimer);
+  }
+
+  pendingStateScanTimer = setTimeout(() => {
+    pendingStateScanTimer = null;
+    scanComponents({ preserveInfoPanel: true, updatedComponentId: componentId });
+  }, 80);
+}
+
+function scanComponents(options = {}) {
   chrome.devtools.inspectedWindow.eval(
     'window.__jailsInspectorData = { components: [] }; ' +
     `(${collectJailsComponents.toString()})(); ` +
@@ -194,14 +207,40 @@ function scanComponents() {
         return;
       }
 
-      if (result && result.components && result.components.length > 0) {
-        visualizer.setComponents(result.components);
+      const components = result && result.components ? result.components : [];
+      const selectedIdBeforeScan = visualizer.selectedNode ? visualizer.selectedNode.id : null;
+
+      if (components.length > 0) {
+        visualizer.setComponents(components);
         installStateSetHooks();
-        document.getElementById('info-panel').innerHTML = 
-          `<p class="placeholder">${result.components.length} component(s) found</p>`;
+
+        if (options.updatedComponentId !== undefined) {
+          visualizer.notifyComponentUpdated(options.updatedComponentId);
+        }
+
+        if (visualizer.selectedNode && visualizer.stateRequester) {
+          const selectedNode = visualizer.selectedNode;
+          visualizer.showNodeInfo(selectedNode);
+          visualizer.stateRequester(selectedNode.component.id, (state) => {
+            if (visualizer.selectedNode && visualizer.selectedNode.component.id === selectedNode.component.id) {
+              visualizer.updateNodeStateInfo(visualizer.selectedNode, state);
+            }
+          });
+        } else if (selectedIdBeforeScan !== null) {
+          clearInspectedElementFocus();
+          document.getElementById('info-panel').innerHTML =
+            '<p class="placeholder">Selected component is no longer in the DOM</p>';
+        } else if (!options.preserveInfoPanel) {
+          document.getElementById('info-panel').innerHTML =
+            `<p class="placeholder">${components.length} component(s) found</p>`;
+        }
       } else {
-        document.getElementById('info-panel').innerHTML = 
-          '<p class="placeholder">No Jails components found</p>';
+        visualizer.setComponents([]);
+
+        if (!options.preserveInfoPanel) {
+          document.getElementById('info-panel').innerHTML =
+            '<p class="placeholder">No Jails components found</p>';
+        }
       }
     }
   );
@@ -272,19 +311,30 @@ function installJailsStateSetHooks() {
 function collectJailsComponents() {
   const components = [];
   const elementMap = new WeakMap();
-  let componentIdCounter = 0;
   const allElements = document.querySelectorAll('*');
   
   // Store references globally for state retrieval
   window.__jailsInspectorElements = {};
+  window.__jailsInspectorElementIds = window.__jailsInspectorElementIds || new WeakMap();
+  window.__jailsInspectorNextElementId = window.__jailsInspectorNextElementId || 0;
+
+  function getInspectorElementId(el) {
+    if (!window.__jailsInspectorElementIds.has(el)) {
+      window.__jailsInspectorElementIds.set(el, window.__jailsInspectorNextElementId++);
+    }
+
+    return window.__jailsInspectorElementIds.get(el);
+  }
   
   // First pass: collect all custom elements
   allElements.forEach((el) => {
     const tagName = el.tagName.toLowerCase();
     
     if (tagName.includes('-')) {
+      const componentId = getInspectorElementId(el);
+
       const component = {
-        id: componentIdCounter++,
+        id: componentId,
         name: tagName,
         tag: tagName,
         children: [],
@@ -308,7 +358,7 @@ function collectJailsComponents() {
       components.push(component);
       elementMap.set(el, component);
       // Store element reference for state retrieval
-      window.__jailsInspectorElements[component.id] = el;
+      window.__jailsInspectorElements[componentId] = el;
     }
   });
 

@@ -188,10 +188,21 @@ class ComponentGraphVisualizer {
   }
 
   setComponents(components) {
+    const selectedNodeId = this.selectedNode ? this.selectedNode.id : null;
+    const hoveredNodeId = this.hoveredNode ? this.hoveredNode.id : null;
+
     this.components = components;
     this.signalFlows = [];
     this.updatedNodePulses.clear();
     this.calculateLayout();
+
+    this.selectedNode = selectedNodeId === null
+      ? null
+      : this.nodes.find(node => node.id === selectedNodeId) || null;
+    this.hoveredNode = hoveredNodeId === null
+      ? null
+      : this.nodes.find(node => node.id === hoveredNodeId) || null;
+
     this.render();
   }
 
