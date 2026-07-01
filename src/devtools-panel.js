@@ -18,18 +18,16 @@ document.addEventListener('DOMContentLoaded', () => {
   visualizer.stateRequester = (componentId, callback) => {
     const evalCode = `
       (function() {
+        const getJailsInspectorComponentInstance = ${getJailsInspectorComponentInstance.toString()};
+        const normalizeJailsInspectorState = ${normalizeJailsInspectorState.toString()};
+        const getJailsInspectorComponentState = ${getJailsInspectorComponentState.toString()};
         const componentId = ${componentId};
         const el = window.__jailsInspectorElements[componentId];
-        if (!el || !window.__jails__) {
+        if (!el) {
           return null;
         }
-        
-        const instance = window.__jails__.getInstance(el);
-        if (!instance) {
-          return null;
-        }
-        
-        return instance.state && instance.state.get ? instance.state.get() : null;
+
+        return (${getJailsInspectorComponentState.toString()})(el);
       })()
     `;
     
@@ -51,9 +49,30 @@ document.addEventListener('DOMContentLoaded', () => {
   chrome.runtime.onMessage.addListener(handleRuntimeMessage);
   window.addEventListener('beforeunload', clearInspectedElementFocus);
 
-  // Auto-scan on open
-  scanComponents();
+  // Auto-scan one second after the inspected page DOM is ready.
+  scheduleInitialScan();
 });
+
+function scheduleInitialScan() {
+  const checkInspectedDomReady = () => {
+    chrome.devtools.inspectedWindow.eval('document.readyState', (readyState) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error:', chrome.runtime.lastError);
+        setTimeout(scanComponents, 1000);
+        return;
+      }
+
+      if (readyState === 'loading') {
+        setTimeout(checkInspectedDomReady, 250);
+        return;
+      }
+
+      setTimeout(scanComponents, 1000);
+    });
+  };
+
+  checkInspectedDomReady();
+}
 
 function focusInspectedElement(componentId) {
   const evalCode = `
@@ -198,9 +217,15 @@ function scheduleStateDrivenScan(componentId) {
 
 function scanComponents(options = {}) {
   chrome.devtools.inspectedWindow.eval(
+    '(function() { ' +
     'window.__jailsInspectorData = { components: [] }; ' +
+    `const getJailsInspectorComponentNames = ${getJailsInspectorComponentNames.toString()}; ` +
+    `const getJailsInspectorComponentInstance = ${getJailsInspectorComponentInstance.toString()}; ` +
+    `const normalizeJailsInspectorState = ${normalizeJailsInspectorState.toString()}; ` +
+    `const getJailsInspectorComponentState = ${getJailsInspectorComponentState.toString()}; ` +
     `(${collectJailsComponents.toString()})(); ` +
-    'window.__jailsInspectorData',
+    'return window.__jailsInspectorData; ' +
+    '})()',
     (result) => {
       if (chrome.runtime.lastError) {
         console.error('Error:', chrome.runtime.lastError);
@@ -248,7 +273,10 @@ function scanComponents(options = {}) {
 
 function installStateSetHooks() {
   chrome.devtools.inspectedWindow.eval(
-    `(${installJailsStateSetHooks.toString()})();`,
+    '(function() { ' +
+    `const getJailsInspectorComponentInstance = ${getJailsInspectorComponentInstance.toString()}; ` +
+    `(${installJailsStateSetHooks.toString()})();` +
+    '})()',
     (result) => {
       if (chrome.runtime.lastError) {
         console.error('Error:', chrome.runtime.lastError);
@@ -262,11 +290,11 @@ function installJailsStateSetHooks() {
 
   Object.keys(elements).forEach((componentId) => {
     const el = elements[componentId];
-    if (!el || !window.__jails__) {
+    if (!el) {
       return;
     }
 
-    const instance = window.__jails__.getInstance(el);
+    const instance = getJailsInspectorComponentInstance(el);
     if (!instance || !instance.state || typeof instance.state.set !== 'function') {
       return;
     }
@@ -308,10 +336,112 @@ function installJailsStateSetHooks() {
   });
 }
 
+function getJailsInspectorComponentNames() {
+  if (!window.__jails__ || !window.__jails__.components) {
+    return [];
+  }
+
+  return Object
+    .values(window.__jails__.components)
+    .map((component) => component && component.name)
+    .filter(Boolean);
+}
+
+function getJailsInspectorComponentInstance(el) {
+  if (!el || !window.__jails__ || !window.__jails__.instances) {
+    return null;
+  }
+
+  return window.__jails__.instances.get(el) || null;
+}
+
+function normalizeJailsInspectorState(value, seen = []) {
+  if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'undefined') {
+    return null;
+  }
+
+  if (typeof value === 'bigint') {
+    return value.toString() + 'n';
+  }
+
+  if (typeof value === 'function') {
+    return '[Function' + (value.name ? ': ' + value.name : '') + ']';
+  }
+
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+
+  if (value instanceof URL) {
+    return value.href;
+  }
+
+  if (value instanceof URLSearchParams) {
+    return Object.fromEntries(value.entries());
+  }
+
+  if (value instanceof Map) {
+    const output = {};
+    value.forEach((mapValue, key) => {
+      output[String(key)] = normalizeJailsInspectorState(mapValue, seen);
+    });
+    return output;
+  }
+
+  if (value instanceof Set) {
+    return Array.from(value.values()).map((setValue) => normalizeJailsInspectorState(setValue, seen));
+  }
+
+  if (typeof Node !== 'undefined' && value instanceof Node) {
+    return '[' + value.nodeName.toLowerCase() + ']';
+  }
+
+  if (seen.includes(value)) {
+    return '[Circular]';
+  }
+
+  const nextSeen = seen.concat(value);
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeJailsInspectorState(item, nextSeen));
+  }
+
+  const output = {};
+  Object.keys(value).forEach((key) => {
+    try {
+      output[key] = normalizeJailsInspectorState(value[key], nextSeen);
+    } catch (error) {
+      output[key] = '[Unreadable]';
+    }
+  });
+
+  return output;
+}
+
+function getJailsInspectorComponentState(el) {
+  const instance = getJailsInspectorComponentInstance(el);
+
+  if (!instance || !instance.state || typeof instance.state.get !== 'function') {
+    return null;
+  }
+
+  try {
+    return normalizeJailsInspectorState(instance.state.get());
+  } catch (error) {
+    return null;
+  }
+}
+
 function collectJailsComponents() {
   const components = [];
   const elementMap = new WeakMap();
-  const allElements = document.querySelectorAll('*');
+  const componentNames = getJailsInspectorComponentNames();
+  const selector = componentNames.join(',');
+  const allElements = selector ? document.querySelectorAll(selector) : [];
   
   // Store references globally for state retrieval
   window.__jailsInspectorElements = {};
@@ -326,63 +456,70 @@ function collectJailsComponents() {
     return window.__jailsInspectorElementIds.get(el);
   }
   
-  // First pass: collect all custom elements
+  // First pass: collect registered Jails custom elements
   allElements.forEach((el) => {
     const tagName = el.tagName.toLowerCase();
     
-    if (tagName.includes('-')) {
-      const componentId = getInspectorElementId(el);
+    const componentId = getInspectorElementId(el);
+    const state = getJailsInspectorComponentState(el);
 
-      const component = {
-        id: componentId,
-        name: tagName,
-        tag: tagName,
-        children: [],
-        parentId: null,
-        hasTemplate: !!el.querySelector('template'),
-        attributes: {},
-        dataAttributes: {},
-        classList: Array.from(el.classList),
-        childCount: el.children.length,
-        depth: 0,
-      };
+    const component = {
+      id: componentId,
+      name: tagName,
+      tag: tagName,
+      children: [],
+      parentId: null,
+      hasTemplate: !!el.querySelector('template'),
+      attributes: {},
+      dataAttributes: {},
+      classList: Array.from(el.classList),
+      childCount: el.children.length,
+      depth: 0,
+      state,
+    };
 
-      for (let attr of el.attributes) {
-        component.attributes[attr.name] = attr.value;
-      }
-
-      for (let key in el.dataset) {
-        component.dataAttributes[key] = el.dataset[key];
-      }
-
-      components.push(component);
-      elementMap.set(el, component);
-      // Store element reference for state retrieval
-      window.__jailsInspectorElements[componentId] = el;
+    for (let attr of el.attributes) {
+      component.attributes[attr.name] = attr.value;
     }
+
+    for (let key in el.dataset) {
+      component.dataAttributes[key] = el.dataset[key];
+    }
+
+    components.push(component);
+    elementMap.set(el, component);
+    // Store element reference for state retrieval
+    window.__jailsInspectorElements[componentId] = el;
   });
 
   // Second pass: build relationships
   allElements.forEach((el) => {
-    const tagName = el.tagName.toLowerCase();
-    if (tagName.includes('-')) {
-      const childComponent = elementMap.get(el);
-      if (childComponent) {
-        let parent = el.parentElement;
-        while (parent) {
-          const parentTagName = parent.tagName.toLowerCase();
-          if (parentTagName.includes('-')) {
-            const parentComponent = elementMap.get(parent);
-            if (parentComponent) {
-              childComponent.parentId = parentComponent.id;
-              if (!parentComponent.children.includes(childComponent.id)) {
-                parentComponent.children.push(childComponent.id);
-              }
-              break;
-            }
+    const childComponent = elementMap.get(el);
+    if (childComponent) {
+      let parent = el.parentElement;
+      while (parent) {
+        const parentComponent = elementMap.get(parent);
+        if (parentComponent) {
+          childComponent.parentId = parentComponent.id;
+          if (!parentComponent.children.includes(childComponent.id)) {
+            parentComponent.children.push(childComponent.id);
           }
-          parent = parent.parentElement;
+          break;
         }
+
+        if (parent.matches && selector && parent.matches(selector)) {
+          const parentId = getInspectorElementId(parent);
+          const parentFromMap = components.find((component) => component.id === parentId);
+          if (parentFromMap) {
+            childComponent.parentId = parentFromMap.id;
+            if (!parentFromMap.children.includes(childComponent.id)) {
+              parentFromMap.children.push(childComponent.id);
+            }
+            break;
+          }
+        }
+
+        parent = parent.parentElement;
       }
     }
   });
