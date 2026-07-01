@@ -192,9 +192,8 @@ class ComponentGraphVisualizer {
     const hoveredNodeId = this.hoveredNode ? this.hoveredNode.id : null;
 
     this.components = components;
-    this.signalFlows = [];
-    this.updatedNodePulses.clear();
     this.calculateLayout();
+    this.pruneAnimationsForCurrentNodes();
 
     this.selectedNode = selectedNodeId === null
       ? null
@@ -204,6 +203,20 @@ class ComponentGraphVisualizer {
       : this.nodes.find(node => node.id === hoveredNodeId) || null;
 
     this.render();
+  }
+
+  pruneAnimationsForCurrentNodes() {
+    const currentNodeIds = new Set(this.nodes.map(node => node.id));
+
+    this.signalFlows = this.signalFlows.filter((signal) => {
+      return currentNodeIds.has(signal.fromId) && currentNodeIds.has(signal.toId);
+    });
+
+    this.updatedNodePulses.forEach((startedAt, nodeId) => {
+      if (!currentNodeIds.has(nodeId)) {
+        this.updatedNodePulses.delete(nodeId);
+      }
+    });
   }
 
   calculateLayout() {
@@ -302,7 +315,8 @@ class ComponentGraphVisualizer {
 
   drawSignalFlows(now) {
     this.signalFlows = this.signalFlows.filter((signal) => {
-      return now <= signal.startTime + signal.duration;
+      const lingerMs = signal.lingerMs || 120;
+      return now <= signal.startTime + signal.duration + lingerMs;
     });
 
     for (let signal of this.signalFlows) {
@@ -437,8 +451,9 @@ class ComponentGraphVisualizer {
       const isSelected = this.selectedNode === node;
       const isHovered = this.hoveredNode === node;
       const pulseStartedAt = this.updatedNodePulses.get(node.id);
+      const isPulsing = pulseStartedAt && now >= pulseStartedAt;
 
-      if (pulseStartedAt) {
+      if (isPulsing) {
         const progress = Math.min(1, (now - pulseStartedAt) / this.pulseDuration);
         const pulseRadius = node.radius + 10 + progress * 18;
         const alpha = Math.max(0, 1 - progress);
@@ -461,8 +476,8 @@ class ComponentGraphVisualizer {
       }
 
       // Draw node circle
-      this.ctx.fillStyle = pulseStartedAt ? '#064e3b' : (isSelected ? '#3b82f6' : '#1e293b');
-      this.ctx.strokeStyle = pulseStartedAt ? '#34d399' : (isSelected ? '#60a5fa' : '#475569');
+      this.ctx.fillStyle = isPulsing ? '#064e3b' : (isSelected ? '#3b82f6' : '#1e293b');
+      this.ctx.strokeStyle = isPulsing ? '#34d399' : (isSelected ? '#60a5fa' : '#475569');
       this.ctx.lineWidth = 2;
       this.ctx.beginPath();
       this.ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
@@ -507,7 +522,7 @@ class ComponentGraphVisualizer {
     this.render();
   }
 
-  enqueueChildSignals(parentNode, startedAt, depth = 0) {
+  enqueueChildSignals(parentNode, startedAt) {
     const childIds = parentNode.component.children || [];
 
     childIds.forEach((childId) => {
@@ -516,15 +531,18 @@ class ComponentGraphVisualizer {
         return;
       }
 
-      const signalStartedAt = startedAt + depth * this.signalCascadeDelay;
+      const signalStartedAt = startedAt + this.signalCascadeDelay;
+      const childPulseStartedAt = signalStartedAt + this.signalDuration;
       this.signalFlows.push({
         fromId: parentNode.id,
         toId: childNode.id,
         startTime: signalStartedAt,
         duration: this.signalDuration,
+        lingerMs: 160,
       });
+      this.updatedNodePulses.set(childNode.id, childPulseStartedAt);
 
-      this.enqueueChildSignals(childNode, startedAt, depth + 1);
+      this.enqueueChildSignals(childNode, childPulseStartedAt);
     });
   }
 
