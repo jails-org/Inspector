@@ -532,13 +532,14 @@ class ComponentGraphVisualizer {
       }
 
       const signalStartedAt = startedAt + this.signalCascadeDelay;
-      const childPulseStartedAt = signalStartedAt + this.signalDuration;
+      const lingerMs = 160;
+      const childPulseStartedAt = signalStartedAt + this.signalDuration + lingerMs;
       this.signalFlows.push({
         fromId: parentNode.id,
         toId: childNode.id,
         startTime: signalStartedAt,
         duration: this.signalDuration,
-        lingerMs: 160,
+        lingerMs,
       });
       this.updatedNodePulses.set(childNode.id, childPulseStartedAt);
 

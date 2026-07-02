@@ -356,70 +356,65 @@ function getJailsInspectorComponentInstance(el) {
 }
 
 function normalizeJailsInspectorState(value, seen = []) {
-  if (value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return value;
-  }
+  const ancestors = [];
 
-  if (typeof value === 'undefined') {
-    return null;
-  }
-
-  if (typeof value === 'bigint') {
-    return value.toString() + 'n';
-  }
-
-  if (typeof value === 'function') {
-    return '[Function' + (value.name ? ': ' + value.name : '') + ']';
-  }
-
-  if (value instanceof Date) {
-    return value.toISOString();
-  }
-
-  if (value instanceof URL) {
-    return value.href;
-  }
-
-  if (value instanceof URLSearchParams) {
-    return Object.fromEntries(value.entries());
-  }
-
-  if (value instanceof Map) {
-    const output = {};
-    value.forEach((mapValue, key) => {
-      output[String(key)] = normalizeJailsInspectorState(mapValue, seen);
-    });
-    return output;
-  }
-
-  if (value instanceof Set) {
-    return Array.from(value.values()).map((setValue) => normalizeJailsInspectorState(setValue, seen));
-  }
-
-  if (typeof Node !== 'undefined' && value instanceof Node) {
-    return '[' + value.nodeName.toLowerCase() + ']';
-  }
-
-  if (seen.includes(value)) {
-    return '[Circular]';
-  }
-
-  const nextSeen = seen.concat(value);
-
-  if (Array.isArray(value)) {
-    return value.map((item) => normalizeJailsInspectorState(item, nextSeen));
-  }
-
-  const output = {};
-  Object.keys(value).forEach((key) => {
-    try {
-      output[key] = normalizeJailsInspectorState(value[key], nextSeen);
-    } catch (error) {
-      output[key] = '[Unreadable]';
+  const json = JSON.stringify(value, function(key, currentValue) {
+    if (currentValue === null || typeof currentValue === 'string' || typeof currentValue === 'number' || typeof currentValue === 'boolean') {
+      return currentValue;
     }
+
+    if (typeof currentValue === 'undefined') {
+      return null;
+    }
+
+    if (typeof currentValue === 'bigint') {
+      return currentValue.toString() + 'n';
+    }
+
+    if (typeof currentValue === 'function') {
+      return '[Function' + (currentValue.name ? ': ' + currentValue.name : '') + ']';
+    }
+
+    if (currentValue instanceof URL) {
+      return currentValue.href;
+    }
+
+    if (currentValue instanceof URLSearchParams) {
+      return Object.fromEntries(currentValue.entries());
+    }
+
+    if (currentValue instanceof Map) {
+      const output = {};
+      currentValue.forEach((mapValue, mapKey) => {
+        output[String(mapKey)] = mapValue;
+      });
+      return output;
+    }
+
+    if (currentValue instanceof Set) {
+      return Array.from(currentValue.values());
+    }
+
+    if (typeof Node !== 'undefined' && currentValue instanceof Node) {
+      return '[' + currentValue.nodeName.toLowerCase() + ']';
+    }
+
+    if (typeof currentValue === 'object') {
+      while (ancestors.length > 0 && ancestors[ancestors.length - 1] !== this) {
+        ancestors.pop();
+      }
+
+      if (ancestors.includes(currentValue)) {
+        return '[Circular]';
+      }
+
+      ancestors.push(currentValue);
+    }
+
+    return currentValue;
   });
 
-  return output;
+  return typeof json === 'undefined' ? null : JSON.parse(json);
 }
 
 function getJailsInspectorComponentState(el) {
